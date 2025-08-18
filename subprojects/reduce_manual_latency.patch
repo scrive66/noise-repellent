@@ -1,0 +1,12 @@
+--- a/src/shared/configurations.h
++++ b/src/shared/configurations.h
+@@ -94,7 +94,7 @@
+ /* ------------------- Denoiser configurations ------------------- */
+ /* --------------------------------------------------------------- */
+
+ // STFT configurations - Frame size in milliseconds
+-#define FRAME_SIZE_GENERAL 46
++#define FRAME_SIZE_GENERAL 23
+ #define OVERLAP_FACTOR_GENERAL 4
+ #define INPUT_WINDOW_TYPE_GENERAL HANN_WINDOW
+ #define OUTPUT_WINDOW_TYPE_GENERAL HANN_WINDOW
