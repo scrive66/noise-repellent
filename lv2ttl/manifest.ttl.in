@@ -30,3 +30,33 @@
   a lv2:Plugin;
   lv2:binary <nrepellentEx@LIB_EXT@> ;
   rdfs:seeAlso <nrepellentEx#stereo.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellent_fs1>
+  a lv2:Plugin;
+  lv2:binary <nrepellent_fs1@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent_fs1.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellent_fs1-stereo>
+  a lv2:Plugin;
+  lv2:binary <nrepellent_fs1@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent_fs1#stereo.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellent_fs4>
+  a lv2:Plugin;
+  lv2:binary <nrepellent_fs4@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent_fs4.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellent_fs4-stereo>
+  a lv2:Plugin;
+  lv2:binary <nrepellent_fs4@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent_fs4#stereo.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellent_fs16>
+  a lv2:Plugin;
+  lv2:binary <nrepellent_fs16@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent_fs16.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellent_fs16-stereo>
+  a lv2:Plugin;
+  lv2:binary <nrepellent_fs16@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent_fs16#stereo.ttl> .
