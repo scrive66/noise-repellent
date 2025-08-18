@@ -7,6 +7,7 @@ install_folder = join_paths(lv2_directory, meson.project_name())
 # Sources to compile
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
+noise_repellent_ex_src = ['plugins/nrepellentEx.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 # Dependencies for noise repellent
@@ -49,6 +50,16 @@ library('nrepellent',
     install_dir: install_folder
 )
 
+library('nrepellentEx',
+    common_src,
+    noise_repellent_ex_src,
+    c_args: lib_c_args,
+    name_prefix: '',
+    dependencies: all_dep,
+    install: true,
+    install_dir: install_folder
+)
+
 library('nrepellent-adaptive',
     common_src,
     noise_repellent_adaptive_src,
@@ -83,6 +94,24 @@ data_conf = configuration_data()
 data_conf.set('MAJOR_VERSION', version_array[0])
 data_conf.set('MINOR_VERSION', version_array[1])
 data_conf.set('MICRO_VERSION', version_array[2])
+
+# Configure nrepellentEx.ttl
+nrepel_ttl_ex = configure_file(
+    input: join_paths('lv2ttl', 'nrepellentEx.ttl.in'),
+    output: 'nrepellentEx.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
+
+# Configure nrepellentEx#stereo.ttl
+nrepel_ttl_ex_stereo = configure_file(
+    input: join_paths('lv2ttl', 'nrepellentEx#stereo.ttl.in'),
+    output: 'nrepellentEx#stereo.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
 
 # Configure nrepellent.ttl
 nrepel_ttl = configure_file(

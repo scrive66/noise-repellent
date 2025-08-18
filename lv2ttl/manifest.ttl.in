@@ -20,3 +20,13 @@
   a lv2:Plugin;
   lv2:binary <nrepellent-adaptive@LIB_EXT@> ;
   rdfs:seeAlso <nrepellent-adaptive#stereo.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellentEx>
+  a lv2:Plugin;
+  lv2:binary <nrepellentEx@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellentEx.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#nrepellentEx-stereo>
+  a lv2:Plugin;
+  lv2:binary <nrepellentEx@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellentEx#stereo.ttl> .
