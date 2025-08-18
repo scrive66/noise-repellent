@@ -20,6 +20,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "noise_profile_state.h"
 #include <stdio.h>
+#include <time.h>
 
 #define MAX_PROFILE_SIZE 8192
 
@@ -53,4 +54,56 @@ int noise_profile_state_load(NoiseProfileState *self, const char *path) {
   size_t read = fread(self, sizeof(NoiseProfileState), 1, f);
   fclose(f);
   return read == 1 ? 0 : -1;
+}
+
+int noise_profile_state_save(NoiseProfileState *self, const char *path) {
+  FILE *f = fopen(path, "wb");
+  if (!f) {
+    return -1;
+  }
+  size_t written = fwrite(self, sizeof(NoiseProfileState), 1, f);
+  fclose(f);
+  return written == 1 ? 0 : -1;
+}
+
+int noise_profile_rename_with_timestamp(const char *path) {
+  // Check if file exists
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    // File doesn't exist, nothing to rename
+    return 0;
+  }
+  fclose(f);
+
+  char new_path[256];
+  char time_str[20];
+  time_t now = time(NULL);
+  if (now == -1) {
+    return -1;
+  }
+
+  struct tm *ptm = localtime(&now);
+  if (ptm == NULL) {
+    return -1;
+  }
+
+  strftime(time_str, sizeof(time_str), "%Y%m%dT%H%M%S", ptm);
+
+  // Expects path in the form ".../profile.dat"
+  // Find the last dot
+  char *dot = strrchr(path, '.');
+  if (!dot) {
+    // Invalid path format, no extension
+    return -1;
+  }
+
+  // Copy the part before the last dot
+  size_t base_len = dot - path;
+  strncpy(new_path, path, base_len);
+  new_path[base_len] = '\0';
+
+  // Append "-YYYYMMDDTHHMMSS.dat"
+  snprintf(new_path + base_len, sizeof(new_path) - base_len, "-%s%s", time_str, dot);
+
+  return rename(path, new_path);
 }

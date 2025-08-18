@@ -31,7 +31,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdlib.h>
 #include <string.h>
 
-#define PROFILE_PATH "/var/modep/lv2/nrepellent.lv2/profile.dat"
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
 #define NOISEREPELLENT_STEREO_URI                                              \
   "https://github.com/lucianodato/noise-repellent-stereo#new"
@@ -109,9 +108,11 @@ typedef struct NoiseRepellentPlugin {
 
   LV2_URID_Map *map;
   LV2_Log_Logger log;
+  LV2_State_Make_Path *make_path;
   URIs uris;
   State state;
   char *plugin_uri;
+  char *profile_path;
 
   SignalCrossfade *soft_bypass;
   SpectralBleachHandle lib_instance_1;
@@ -133,6 +134,7 @@ typedef struct NoiseRepellentPlugin {
   float *noise_rescale;
   float *reset_noise_profile;
 
+  bool was_learning_noise;
 } NoiseRepellentPlugin;
 
 static void cleanup(LV2_Handle instance) {
@@ -160,6 +162,10 @@ static void cleanup(LV2_Handle instance) {
     free(self->plugin_uri);
   }
 
+  if (self->profile_path) {
+    free(self->profile_path);
+  }
+
   if (self->soft_bypass) {
     signal_crossfade_free(self->soft_bypass);
   }
@@ -174,11 +180,9 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
       (NoiseRepellentPlugin *)calloc(1U, sizeof(NoiseRepellentPlugin));
 
   // clang-format off
-  const char *missing =
-      lv2_features_query(features,
-                         LV2_LOG__log, &self->log.log, false,
-                         LV2_URID__map, &self->map, true,
-                         NULL);
+  const char *missing = lv2_features_query(
+      features, LV2_LOG__log, &self->log.log, false, LV2_URID__map, &self->map,
+      true, LV2_STATE__makePath, &self->make_path, false, NULL);
   // clang-format on
 
   lv2_log_logger_set_map(&self->log, self->map);
@@ -241,7 +245,16 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     self->noise_profile_2 = (float *)calloc(self->profile_size, sizeof(float));
   }
 
-  if (noise_profile_state_load(self->noise_profile_state_1, PROFILE_PATH) == 0) {
+  if (self->make_path) {
+    self->profile_path =
+        self->make_path->path(self->make_path->handle, "profile.dat");
+  }
+
+  self->was_learning_noise = false;
+
+  if (self->profile_path &&
+      noise_profile_state_load(self->noise_profile_state_1,
+                               self->profile_path) == 0) {
     memcpy(self->noise_profile_1,
            noise_profile_get_elements(self->noise_profile_state_1),
            sizeof(float) * self->profile_size);
@@ -347,11 +360,23 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_load_parameters(self->lib_instance_1, self->parameters);
 
   if ((bool)*self->reset_noise_profile) {
+    if (self->profile_path) {
+      noise_profile_rename_with_timestamp(self->profile_path);
+    }
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
 
   specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
                      self->output_1);
+
+  if (self->was_learning_noise && !((bool)*self->learn_noise) &&
+      self->profile_path) {
+    memcpy(noise_profile_get_elements(self->noise_profile_state_1),
+           specbleach_get_noise_profile(self->lib_instance_1),
+           sizeof(float) * self->profile_size);
+    noise_profile_state_save(self->noise_profile_state_1, self->profile_path);
+  }
+  self->was_learning_noise = (bool)*self->learn_noise;
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
                        self->output_1, (bool)*self->enable);
@@ -365,6 +390,9 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_load_parameters(self->lib_instance_2, self->parameters);
 
   if ((bool)*self->reset_noise_profile) {
+    if (self->profile_path) {
+      // Renaming is already handled in run() for the single profile file
+    }
     specbleach_reset_noise_profile(self->lib_instance_2);
   }
 
