@@ -33,7 +33,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define PROFILE_PATH "/var/modep/lv2/nrepellent.lv2/profile.dat"
 #ifndef FRAME_SIZE
-#define FRAME_SIZE 46.0f
+#define FRAME_SIZE 16.0f
 #endif
 
 #ifndef PLUGIN_URI

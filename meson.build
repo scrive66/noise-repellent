@@ -52,35 +52,6 @@ data_conf.set('MICRO_VERSION', version_array[2])
 data_conf.set('PLUGIN_URI', 'https://github.com/lucianodato/noise-repellent#new')
 data_conf.set('PLUGIN_NAME', 'Noise repellent')
 
-# Build original plugins
-library('nrepellent',
-    common_src,
-    noise_repellent_src,
-    c_args: lib_c_args,
-    name_prefix: '',
-    dependencies: all_dep,
-    install: true,
-    install_dir: install_folder
-)
-
-nrepel_ttl = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent.ttl.in'),
-    output: 'nrepellent.ttl',
-    configuration: data_conf,
-    install: true,
-	install_dir: install_folder
-)
-
-stereo_conf = configuration_data()
-stereo_conf.merge_from(data_conf)
-stereo_conf.set('PLUGIN_URI', 'https://github.com/lucianodato/noise-repellent-stereo#new')
-nrepel_ttl_stereo = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
-    output: 'nrepellent#stereo.ttl',
-    configuration: stereo_conf,
-    install: true,
-	install_dir: install_folder
-)
 
 # Build plugins with different frame sizes
 frame_sizes = [1, 4, 16]
@@ -138,16 +109,6 @@ endforeach
 manifest_content = '''
 @prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
-
-<https://github.com/lucianodato/noise-repellent#new>
-  a lv2:Plugin;
-  lv2:binary <nrepellent@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent.ttl> .
-
-<https://github.com/lucianodato/noise-repellent-stereo#new>
-  a lv2:Plugin;
-  lv2:binary <nrepellent@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent#stereo.ttl> .
 '''
 
 foreach fs : frame_sizes
