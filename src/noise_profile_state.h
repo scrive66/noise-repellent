@@ -32,5 +32,6 @@ void noise_profile_state_free(NoiseProfileState *self);
 float *noise_profile_get_elements(NoiseProfileState *self);
 size_t noise_profile_get_size();
 int noise_profile_state_load(NoiseProfileState *self, const char *path);
+int noise_profile_state_save(NoiseProfileState *self, const char *path);
 
 #endif
