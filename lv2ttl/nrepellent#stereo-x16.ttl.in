@@ -1,0 +1,37 @@
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix param: <http://lv2plug.in/ns/ext/parameters#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix pg: <http://lv2plug.in/ns/ext/port-groups#> .
+@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix state: <http://lv2plug.in/ns/ext/state#> .
+@prefix urid: <http://lv2plug.in/ns/ext/urid#> .
+
+<https://github.com/lucianodato#me>
+  a foaf:Person ;
+  foaf:name "Luciano Dato" ;
+  foaf:homepage <https://github.com/lucianodato> ;
+  foaf:mbox <mailto:lucianodato@gmail.com> .
+
+<https://github.com/lucianodato/noise-repellent-stereo#new-x16>
+  a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
+  doap:maintainer <https://github.com/lucianodato#me> ;
+  doap:license <https://opensource.org/licenses/LGPL-3.0> ;
+  doap:name "Repelente de ruido"@es ,
+    "Répulseur de bruit"@fr ,
+    "Noise repellent x16" ;
+  doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
+               "Un greffon LV2 pour la réduction du bruit à large bande"@fr ,
+               "An LV2 plugin for broadband noise reduction" ;
+  lv2:project <https://github.com/lucianodato/noise-repellent-stereo#new-x16> ;
+  lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
+  lv2:extensionData state:interface ;
+  lv2:requiredFeature urid:map ;
+
+  lv2:minorVersion @MINOR_VERSION@ ;
+  lv2:microVersion @MICRO_VERSION@ ;
+
+  rdfs:seeAlso <nrepellent#stereo.ttl> .
