@@ -7,7 +7,6 @@ install_folder = join_paths(lv2_directory, meson.project_name())
 # Sources to compile
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
-noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 # Dependencies for noise repellent
 lv2_dep = dependency('lv2', required: true)
@@ -49,15 +48,7 @@ library('nrepellent',
     install_dir: install_folder
 )
 
-library('nrepellent-adaptive',
-    common_src,
-    noise_repellent_adaptive_src,
-    c_args: lib_c_args,
-    name_prefix: '',
-    dependencies: all_dep,
-    install: true,
-    install_dir: install_folder
-)
+
 	
 # Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
@@ -102,19 +93,50 @@ nrepel_ttl = configure_file(
 	install_dir: install_folder
 )
 
-# Configure nrepellent-adaptive.ttl
-nrepel_ttl_adaptive = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
-    output: 'nrepellent-adaptive.ttl',
+# Configure frame-size variants
+nrepel_ttl_x1 = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent#x1.ttl.in'),
+    output: 'nrepellent#x1.ttl',
     configuration: data_conf,
     install: true,
 	install_dir: install_folder
 )
 
-# Configure nrepellent-adaptive#stereo.ttl
-nrepel_ttl_adaptive_stereo = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
-    output: 'nrepellent-adaptive#stereo.ttl',
+nrepel_ttl_x4 = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent#x4.ttl.in'),
+    output: 'nrepellent#x4.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
+
+nrepel_ttl_x16 = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent#x16.ttl.in'),
+    output: 'nrepellent#x16.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
+
+nrepel_ttl_stereo_x1 = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent#stereo-x1.ttl.in'),
+    output: 'nrepellent#stereo-x1.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
+
+nrepel_ttl_stereo_x4 = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent#stereo-x4.ttl.in'),
+    output: 'nrepellent#stereo-x4.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
+
+nrepel_ttl_stereo_x16 = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent#stereo-x16.ttl.in'),
+    output: 'nrepellent#stereo-x16.ttl',
     configuration: data_conf,
     install: true,
 	install_dir: install_folder

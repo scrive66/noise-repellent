@@ -1,22 +1,32 @@
 @prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 
-<https://github.com/lucianodato/noise-repellent#new>
+<https://github.com/lucianodato/noise-repellent#new-x1>
   a lv2:Plugin;
   lv2:binary <nrepellent@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent.ttl> .
+  rdfs:seeAlso <nrepellent#x1.ttl> .
   
-<https://github.com/lucianodato/noise-repellent-stereo#new>
+<https://github.com/lucianodato/noise-repellent-stereo#new-x1>
   a lv2:Plugin;
   lv2:binary <nrepellent@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent#stereo.ttl> .
+  rdfs:seeAlso <nrepellent#stereo-x1.ttl> .
 
-<https://github.com/lucianodato/noise-repellent#adaptive>
+<https://github.com/lucianodato/noise-repellent#new-x4>
   a lv2:Plugin;
-  lv2:binary <nrepellent-adaptive@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent-adaptive.ttl> .
-  
-<https://github.com/lucianodato/noise-repellent#adaptive-stereo>
+  lv2:binary <nrepellent@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent#x4.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#new-x16>
   a lv2:Plugin;
-  lv2:binary <nrepellent-adaptive@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent-adaptive#stereo.ttl> .
+  lv2:binary <nrepellent@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent#x16.ttl> .
+
+<https://github.com/lucianodato/noise-repellent-stereo#new-x4>
+  a lv2:Plugin;
+  lv2:binary <nrepellent@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent#stereo-x4.ttl> .
+
+<https://github.com/lucianodato/noise-repellent-stereo#new-x16>
+  a lv2:Plugin;
+  lv2:binary <nrepellent@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent#stereo-x16.ttl> .
