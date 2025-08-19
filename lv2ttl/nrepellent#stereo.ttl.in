@@ -16,15 +16,17 @@
   foaf:homepage <https://github.com/lucianodato> ;
   foaf:mbox <mailto:lucianodato@gmail.com> .
 
-<@PLUGIN_URI@>
+<https://github.com/lucianodato/noise-repellent-stereo#new>
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
   doap:maintainer <https://github.com/lucianodato#me> ;
   doap:license <https://opensource.org/licenses/LGPL-3.0> ;
-  doap:name "@PLUGIN_NAME@" ;
+  doap:name "Repelente de ruido"@es ,
+    "Répulseur de bruit"@fr ,
+    "Noise repellent" ;
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
                "Un greffon LV2 pour la réduction du bruit à large bande"@fr ,
                "An LV2 plugin for broadband noise reduction" ;
-  lv2:project <@PLUGIN_URI@> ;
+  lv2:project <https://github.com/lucianodato/noise-repellent-stereo#new> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
   lv2:extensionData state:interface ;
   lv2:requiredFeature urid:map ;

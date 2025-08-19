@@ -54,13 +54,3 @@ int noise_profile_state_load(NoiseProfileState *self, const char *path) {
   fclose(f);
   return read == 1 ? 0 : -1;
 }
-
-int noise_profile_state_save(NoiseProfileState *self, const char *path) {
-  FILE *f = fopen(path, "wb");
-  if (!f) {
-    return -1;
-  }
-  size_t written = fwrite(self, sizeof(NoiseProfileState), 1, f);
-  fclose(f);
-  return written == 1 ? 0 : -1;
-}
