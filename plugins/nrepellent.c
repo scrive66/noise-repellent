@@ -32,9 +32,20 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <string.h>
 
 #define PROFILE_PATH "/var/modep/lv2/nrepellent.lv2/profile.dat"
-#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
-#define NOISEREPELLENT_STEREO_URI                                              \
-  "https://github.com/lucianodato/noise-repellent-stereo#new"
+#ifndef FRAME_SIZE
+#define FRAME_SIZE 46.0f
+#endif
+
+#ifndef PLUGIN_URI
+#define PLUGIN_URI "https://github.com/lucianodato/noise-repellent#new"
+#endif
+
+#ifndef PLUGIN_STEREO_URI
+#define PLUGIN_STEREO_URI "https://github.com/lucianodato/noise-repellent-stereo#new"
+#endif
+
+#define NOISEREPELLENT_URI PLUGIN_URI
+#define NOISEREPELLENT_STEREO_URI PLUGIN_STEREO_URI
 
 typedef struct URIs {
   LV2_URID atom_Int;
@@ -211,7 +222,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  self->lib_instance_1 = specbleach_initialize((uint32_t)self->sample_rate, 46.0F);
+  self->lib_instance_1 = specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
   if (!self->lib_instance_1) {
     lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
     cleanup((LV2_Handle)self);
@@ -227,7 +238,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->noise_profile_1 = (float *)calloc(self->profile_size, sizeof(float));
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-    self->lib_instance_2 = specbleach_initialize((uint32_t)self->sample_rate, 46.0F);
+    self->lib_instance_2 = specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
 
     if (!self->lib_instance_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
