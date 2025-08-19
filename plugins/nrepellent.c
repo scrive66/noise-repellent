@@ -30,10 +30,23 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "specbleach_denoiser.h"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
-#define NOISEREPELLENT_STEREO_URI                                              \
-  "https://github.com/lucianodato/noise-repellent-stereo#new"
+#define PROFILE_PATH "/var/modep/lv2/nrepellent.lv2/profile.dat"
+#ifndef FRAME_SIZE
+#define FRAME_SIZE 16.0f
+#endif
+
+#ifndef PLUGIN_URI
+#define PLUGIN_URI "https://github.com/lucianodato/noise-repellent#new"
+#endif
+
+#ifndef PLUGIN_STEREO_URI
+#define PLUGIN_STEREO_URI "https://github.com/lucianodato/noise-repellent-stereo#new"
+#endif
+
+#define NOISEREPELLENT_URI PLUGIN_URI
+#define NOISEREPELLENT_STEREO_URI PLUGIN_STEREO_URI
 
 typedef struct URIs {
   LV2_URID atom_Int;
@@ -131,6 +144,7 @@ typedef struct NoiseRepellentPlugin {
   float *whitening_factor;
   float *noise_rescale;
   float *reset_noise_profile;
+  float prev_learn_noise;
 
 } NoiseRepellentPlugin;
 
@@ -210,7 +224,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  self->lib_instance_1 = specbleach_initialize((uint32_t)self->sample_rate);
+  self->lib_instance_1 = specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
   if (!self->lib_instance_1) {
     lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
     cleanup((LV2_Handle)self);
@@ -226,7 +240,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->noise_profile_1 = (float *)calloc(self->profile_size, sizeof(float));
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-    self->lib_instance_2 = specbleach_initialize((uint32_t)self->sample_rate);
+    self->lib_instance_2 = specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
 
     if (!self->lib_instance_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
@@ -238,6 +252,23 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
         noise_profile_state_initialize(self->uris.atom_Float);
 
     self->noise_profile_2 = (float *)calloc(self->profile_size, sizeof(float));
+  }
+
+  self->prev_learn_noise = 0.0f;
+  if (noise_profile_state_load(self->noise_profile_state_1, PROFILE_PATH) == 0) {
+    memcpy(self->noise_profile_1,
+           noise_profile_get_elements(self->noise_profile_state_1),
+           sizeof(float) * self->profile_size);
+    specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
+                                  self->profile_size, 0);
+
+    if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
+        memcpy(self->noise_profile_2,
+               noise_profile_get_elements(self->noise_profile_state_1),
+               sizeof(float) * self->profile_size);
+        specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
+                                     self->profile_size, 0);
+    }
   }
 
   return (LV2_Handle)self;
@@ -329,7 +360,20 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_1, self->parameters);
 
+  if (self->prev_learn_noise == 1.0f && *self->learn_noise == 0.0f) {
+    memcpy(noise_profile_get_elements(self->noise_profile_state_1),
+           specbleach_get_noise_profile(self->lib_instance_1),
+           sizeof(float) * self->profile_size);
+    noise_profile_state_save(self->noise_profile_state_1, PROFILE_PATH);
+  }
+  self->prev_learn_noise = *self->learn_noise;
+
   if ((bool)*self->reset_noise_profile) {
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    char new_profile_path[256];
+    strftime(new_profile_path, sizeof(new_profile_path), "profile-%Y%m%dT%H%M%S.dat", tm);
+    rename(PROFILE_PATH, new_profile_path);
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
 
@@ -347,7 +391,20 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_2, self->parameters);
 
+  if (self->prev_learn_noise == 1.0f && *self->learn_noise == 0.0f) {
+    memcpy(noise_profile_get_elements(self->noise_profile_state_1),
+           specbleach_get_noise_profile(self->lib_instance_1),
+           sizeof(float) * self->profile_size);
+    noise_profile_state_save(self->noise_profile_state_1, PROFILE_PATH);
+  }
+  self->prev_learn_noise = *self->learn_noise;
+
   if ((bool)*self->reset_noise_profile) {
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    char new_profile_path[256];
+    strftime(new_profile_path, sizeof(new_profile_path), "profile-%Y%m%dT%H%M%S.dat", tm);
+    rename(PROFILE_PATH, new_profile_path);
     specbleach_reset_noise_profile(self->lib_instance_2);
   }
 

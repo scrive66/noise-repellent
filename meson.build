@@ -7,7 +7,6 @@ install_folder = join_paths(lv2_directory, meson.project_name())
 # Sources to compile
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
-noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 # Dependencies for noise repellent
 lv2_dep = dependency('lv2', required: true)
@@ -38,27 +37,6 @@ if current_os == 'windows' #windows
     extension = '.dll'
 endif
 
-# Build of the shared object
-library('nrepellent',
-    common_src,
-    noise_repellent_src,
-    c_args: lib_c_args,
-    name_prefix: '',
-    dependencies: all_dep,
-    install: true,
-    install_dir: install_folder
-)
-
-library('nrepellent-adaptive',
-    common_src,
-    noise_repellent_adaptive_src,
-    c_args: lib_c_args,
-    name_prefix: '',
-    dependencies: all_dep,
-    install: true,
-    install_dir: install_folder
-)
-	
 # Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
 
@@ -67,55 +45,99 @@ if version_array.length() == 0 and git.found()
     version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 endif
 
-# Configure manifest.ttl
-manifest_conf = configuration_data()
-manifest_conf.set('LIB_EXT', extension)
-
-manifest_ttl = configure_file(
-    input: 'lv2ttl/manifest.ttl.in',
-    output: 'manifest.ttl',
-    configuration: manifest_conf,
-    install: true,
-	install_dir: install_folder
-)
-
 data_conf = configuration_data()
 data_conf.set('MAJOR_VERSION', version_array[0])
 data_conf.set('MINOR_VERSION', version_array[1])
 data_conf.set('MICRO_VERSION', version_array[2])
+data_conf.set('PLUGIN_URI', 'https://github.com/lucianodato/noise-repellent#new')
+data_conf.set('PLUGIN_NAME', 'Noise repellent')
 
-# Configure nrepellent.ttl
-nrepel_ttl = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent.ttl.in'),
-    output: 'nrepellent.ttl',
-    configuration: data_conf,
-    install: true,
-	install_dir: install_folder
-)
 
-# Configure nrepellent.ttl
-nrepel_ttl = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
-    output: 'nrepellent#stereo.ttl',
-    configuration: data_conf,
-    install: true,
-	install_dir: install_folder
-)
+# Build plugins with different frame sizes
+frame_sizes = [1, 4, 16]
+foreach fs : frame_sizes
+    fs_str = fs.to_string()
 
-# Configure nrepellent-adaptive.ttl
-nrepel_ttl_adaptive = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
-    output: 'nrepellent-adaptive.ttl',
-    configuration: data_conf,
-    install: true,
-	install_dir: install_folder
-)
+    plugin_name = 'nrepellent_fs' + fs_str
+    plugin_uri = 'https://github.com/lucianodato/noise-repellent#new_fs' + fs_str
+    plugin_stereo_uri = 'https://github.com/lucianodato/noise-repellent-stereo#new_fs' + fs_str
 
-# Configure nrepellent-adaptive#stereo.ttl
-nrepel_ttl_adaptive_stereo = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
-    output: 'nrepellent-adaptive#stereo.ttl',
-    configuration: data_conf,
+    fs_lib_c_args = lib_c_args + [
+        '-DFRAME_SIZE=' + fs_str + '.0f',
+        '-DPLUGIN_URI="' + plugin_uri + '"',
+        '-DPLUGIN_STEREO_URI="' + plugin_stereo_uri + '"',
+    ]
+
+    library(plugin_name,
+        common_src,
+        noise_repellent_src,
+        c_args: fs_lib_c_args,
+        name_prefix: '',
+        dependencies: all_dep,
+        install: true,
+        install_dir: install_folder
+    )
+
+    ttl_conf = configuration_data()
+    ttl_conf.merge_from(data_conf)
+    ttl_conf.set('PLUGIN_URI', plugin_uri)
+    ttl_conf.set('PLUGIN_NAME', 'Noise repellent (fs' + fs_str + ')')
+
+    configure_file(
+        input: join_paths('lv2ttl', 'nrepellent.ttl.in'),
+        output: 'nrepellent_fs' + fs_str + '.ttl',
+        configuration: ttl_conf,
+        install: true,
+        install_dir: install_folder
+    )
+
+    ttl_stereo_conf = configuration_data()
+    ttl_stereo_conf.merge_from(data_conf)
+    ttl_stereo_conf.set('PLUGIN_URI', plugin_stereo_uri)
+    ttl_stereo_conf.set('PLUGIN_NAME', 'Noise repellent (fs' + fs_str + ')')
+
+    configure_file(
+        input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
+        output: 'nrepellent_fs' + fs_str + '#stereo.ttl',
+        configuration: ttl_stereo_conf,
+        install: true,
+        install_dir: install_folder
+    )
+endforeach
+
+# Generate manifest.ttl
+manifest_content = '''
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+'''
+
+foreach fs : frame_sizes
+    fs_str = fs.to_string()
+    plugin_name = 'nrepellent_fs' + fs_str
+    plugin_uri = 'https://github.com/lucianodato/noise-repellent#new_fs' + fs_str
+    plugin_stereo_uri = 'https://github.com/lucianodato/noise-repellent-stereo#new_fs' + fs_str
+
+    manifest_content += '''
+<@0@>
+  a lv2:Plugin;
+  lv2:binary <@1@@LIB_EXT@> ;
+  rdfs:seeAlso <@1@.ttl> .
+
+<@2@>
+  a lv2:Plugin;
+  lv2:binary <@1@@LIB_EXT@> ;
+  rdfs:seeAlso <@1@#stereo.ttl> .
+'''.format(plugin_uri, plugin_name, plugin_stereo_uri)
+endforeach
+
+manifest_conf = configuration_data()
+manifest_conf.set('LIB_EXT', extension)
+manifest_conf.set('MANIFEST_CONTENT', manifest_content)
+
+configure_file(
+    input: 'lv2ttl/manifest.ttl.in',
+    output: 'manifest.ttl',
+    configuration: manifest_conf,
     install: true,
 	install_dir: install_folder
 )
