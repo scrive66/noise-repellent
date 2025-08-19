@@ -7,7 +7,6 @@ install_folder = join_paths(lv2_directory, meson.project_name())
 # Sources to compile
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
-noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 # Dependencies for noise repellent
 lv2_dep = dependency('lv2', required: true)
@@ -27,7 +26,6 @@ if current_arch == 'x86' or current_arch == 'x86_64' and current_os != 'darwin'
     lib_c_args += ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
 endif
 
-
 # Configure extension for shared object
 if current_os == 'darwin' #mac
     extension = '.dylib'
@@ -38,27 +36,6 @@ if current_os == 'windows' #windows
     extension = '.dll'
 endif
 
-# Build of the shared object
-library('nrepellent',
-    common_src,
-    noise_repellent_src,
-    c_args: lib_c_args,
-    name_prefix: '',
-    dependencies: all_dep,
-    install: true,
-    install_dir: install_folder
-)
-
-library('nrepellent-adaptive',
-    common_src,
-    noise_repellent_adaptive_src,
-    c_args: lib_c_args,
-    name_prefix: '',
-    dependencies: all_dep,
-    install: true,
-    install_dir: install_folder
-)
-	
 # Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
 
@@ -67,55 +44,61 @@ if version_array.length() == 0 and git.found()
     version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 endif
 
-# Configure manifest.ttl
-manifest_conf = configuration_data()
-manifest_conf.set('LIB_EXT', extension)
-
-manifest_ttl = configure_file(
-    input: 'lv2ttl/manifest.ttl.in',
-    output: 'manifest.ttl',
-    configuration: manifest_conf,
-    install: true,
-	install_dir: install_folder
-)
-
 data_conf = configuration_data()
 data_conf.set('MAJOR_VERSION', version_array[0])
 data_conf.set('MINOR_VERSION', version_array[1])
 data_conf.set('MICRO_VERSION', version_array[2])
 
-# Configure nrepellent.ttl
-nrepel_ttl = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent.ttl.in'),
-    output: 'nrepellent.ttl',
-    configuration: data_conf,
-    install: true,
-	install_dir: install_folder
-)
+# Generate variant-specific TTLs and manifest
+variants = [
+  {'name': 'fs1',  'frame': '1',  'urisuffix': ':fs1'},
+  {'name': 'fs4',  'frame': '4',  'urisuffix': ':fs4'},
+  {'name': 'fs16', 'frame': '16', 'urisuffix': ':fs16'},
+]
 
-# Configure nrepellent.ttl
-nrepel_ttl = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
-    output: 'nrepellent#stereo.ttl',
-    configuration: data_conf,
-    install: true,
-	install_dir: install_folder
-)
+foreach v : variants
+  var_name = 'nrepellent_' + v['name']
+  cargs = lib_c_args + ['-DNR_FRAME_SIZE=' + v['frame'], '-DNR_URI_SUFFIX="' + v['urisuffix'] + '"']
 
-# Configure nrepellent-adaptive.ttl
-nrepel_ttl_adaptive = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
-    output: 'nrepellent-adaptive.ttl',
-    configuration: data_conf,
+  lib = library(var_name,
+    common_src,
+    noise_repellent_src,
+    c_args: cargs,
+    name_prefix: '',
+    dependencies: all_dep,
     install: true,
-	install_dir: install_folder
-)
+    install_dir: install_folder
+  )
 
-# Configure nrepellent-adaptive#stereo.ttl
-nrepel_ttl_adaptive_stereo = configure_file(
-    input: join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
-    output: 'nrepellent-adaptive#stereo.ttl',
-    configuration: data_conf,
-    install: true,
-	install_dir: install_folder
+  conf = configuration_data()
+  conf.set('MAJOR_VERSION', version_array[0])
+  conf.set('MINOR_VERSION', version_array[1])
+  conf.set('MICRO_VERSION', version_array[2])
+  conf.set('URI_SUFFIX', v['urisuffix'])
+
+  configure_file(
+      input: join_paths('lv2ttl', 'nrepellent.ttl.in'),
+      output: 'nrepellent@' + v['name'] + '.ttl',
+      configuration: conf,
+      install: true,
+      install_dir: install_folder
+  )
+
+  configure_file(
+      input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
+      output: 'nrepellent#stereo@' + v['name'] + '.ttl',
+      configuration: conf,
+      install: true,
+      install_dir: install_folder
+  )
+endforeach
+
+manifest_conf = configuration_data()
+manifest_conf.set('LIB_EXT', extension)
+configure_file(
+  input: join_paths('lv2ttl', 'manifest.multifs.ttl.in'),
+  output: 'manifest.ttl',
+  configuration: manifest_conf,
+  install: true,
+  install_dir: install_folder
 )

@@ -30,10 +30,25 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "specbleach_denoiser.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <time.h>
+#include <sys/stat.h>
 
-#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
+#ifndef NR_URI_SUFFIX
+#define NR_URI_SUFFIX ""
+#endif
+
+#ifndef NR_FRAME_SIZE
+#define NR_FRAME_SIZE 4
+#endif
+
+#undef NOISEREPELLENT_URI
+#undef NOISEREPELLENT_STEREO_URI
+#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new" NR_URI_SUFFIX
 #define NOISEREPELLENT_STEREO_URI                                              \
-  "https://github.com/lucianodato/noise-repellent-stereo#new"
+  "https://github.com/lucianodato/noise-repellent-stereo#new" NR_URI_SUFFIX
 
 typedef struct URIs {
   LV2_URID atom_Int;
@@ -111,6 +126,9 @@ typedef struct NoiseRepellentPlugin {
   URIs uris;
   State state;
   char *plugin_uri;
+  char *bundle_path;
+  char profile_file_path[1024];
+  bool previous_learn_noise;
 
   SignalCrossfade *soft_bypass;
   SpectralBleachHandle lib_instance_1;
@@ -133,6 +151,96 @@ typedef struct NoiseRepellentPlugin {
   float *reset_noise_profile;
 
 } NoiseRepellentPlugin;
+
+static void nr_build_profile_path(NoiseRepellentPlugin *self, const char *bundle_path) {
+  size_t len = strlen(bundle_path);
+  const char *slash = (len > 0U && bundle_path[len - 1U] == '/') ? "" : "/";
+  snprintf(self->profile_file_path, sizeof self->profile_file_path, "%s%sprofile.dat", bundle_path, slash);
+}
+
+static bool nr_file_exists(const char *path) {
+  struct stat st;
+  return stat(path, &st) == 0 && S_ISREG(st.st_mode);
+}
+
+static void nr_save_profile_to_file(NoiseRepellentPlugin *self, SpectralBleachHandle handle) {
+  if (!specbleach_noise_profile_available(handle)) {
+    return;
+  }
+  FILE *f = fopen(self->profile_file_path, "wb");
+  if (!f) {
+    return;
+  }
+  uint32_t fftsize = self->profile_size;
+  uint32_t averaged_blocks = specbleach_get_noise_profile_blocks_averaged(handle);
+  fwrite(&fftsize, sizeof(uint32_t), 1U, f);
+  fwrite(&averaged_blocks, sizeof(uint32_t), 1U, f);
+  const float *profile = specbleach_get_noise_profile(handle);
+  fwrite(profile, sizeof(float), (size_t)self->profile_size, f);
+  fclose(f);
+}
+
+static void nr_try_load_profile_from_file(NoiseRepellentPlugin *self, SpectralBleachHandle handle) {
+  if (!nr_file_exists(self->profile_file_path)) {
+    return;
+  }
+  FILE *f = fopen(self->profile_file_path, "rb");
+  if (!f) {
+    return;
+  }
+  uint32_t fftsize = 0U;
+  uint32_t averaged_blocks = 0U;
+  if (fread(&fftsize, sizeof(uint32_t), 1U, f) != 1U) {
+    fclose(f);
+    return;
+  }
+  if (fread(&averaged_blocks, sizeof(uint32_t), 1U, f) != 1U) {
+    fclose(f);
+    return;
+  }
+  if (fftsize != self->profile_size) {
+    fclose(f);
+    return;
+  }
+  float *buffer = (float *)malloc(sizeof(float) * (size_t)self->profile_size);
+  if (!buffer) {
+    fclose(f);
+    return;
+  }
+  size_t readn = fread(buffer, sizeof(float), (size_t)self->profile_size, f);
+  fclose(f);
+  if (readn != (size_t)self->profile_size) {
+    free(buffer);
+    return;
+  }
+  specbleach_load_noise_profile(handle, buffer, fftsize, averaged_blocks);
+  free(buffer);
+}
+
+static void nr_backup_profile_file_if_exists(NoiseRepellentPlugin *self) {
+  if (!nr_file_exists(self->profile_file_path)) {
+    return;
+  }
+  char backup_path[1200];
+  time_t now = time(NULL);
+  struct tm tm_now = *localtime(&now);
+  char ts[32];
+  strftime(ts, sizeof ts, "%Y%m%dT%H%M%S", &tm_now);
+  size_t base_len = strlen(self->profile_file_path);
+  const char *suffix = "profile.dat";
+  const size_t suffix_len = strlen(suffix);
+  const char *pos = NULL;
+  if (base_len >= suffix_len) {
+    pos = self->profile_file_path + (base_len - suffix_len);
+  }
+  if (pos && strcmp(pos, suffix) == 0) {
+    size_t dir_len = (size_t)(pos - self->profile_file_path);
+    snprintf(backup_path, sizeof backup_path, "%.*sprofile-%s.dat", (int)dir_len, self->profile_file_path, ts);
+  } else {
+    snprintf(backup_path, sizeof backup_path, "%s.%s.bak", self->profile_file_path, ts);
+  }
+  rename(self->profile_file_path, backup_path);
+}
 
 static void cleanup(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
@@ -157,6 +265,9 @@ static void cleanup(LV2_Handle instance) {
 
   if (self->plugin_uri) {
     free(self->plugin_uri);
+  }
+  if (self->bundle_path) {
+    free(self->bundle_path);
   }
 
   if (self->soft_bypass) {
@@ -203,6 +314,13 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->sample_rate = (float)rate;
 
+  if (bundle_path) {
+    self->bundle_path = (char *)calloc(strlen(bundle_path) + 1U, sizeof(char));
+    strcpy(self->bundle_path, bundle_path);
+    nr_build_profile_path(self, self->bundle_path);
+  }
+  self->previous_learn_noise = false;
+
   self->soft_bypass = signal_crossfade_initialize((uint32_t)self->sample_rate);
 
   if (!self->soft_bypass) {
@@ -240,6 +358,12 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     self->noise_profile_2 = (float *)calloc(self->profile_size, sizeof(float));
   }
 
+  if (self->bundle_path) {
+    nr_try_load_profile_from_file(self, self->lib_instance_1);
+    if (self->lib_instance_2) {
+      nr_try_load_profile_from_file(self, self->lib_instance_2);
+    }
+  }
   return (LV2_Handle)self;
 }
 
@@ -329,7 +453,15 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_1, self->parameters);
 
+  bool current_learn = (bool)*self->learn_noise;
+  if (self->previous_learn_noise && !current_learn && self->bundle_path) {
+    nr_save_profile_to_file(self, self->lib_instance_1);
+  }
+
   if ((bool)*self->reset_noise_profile) {
+    if (self->bundle_path) {
+      nr_backup_profile_file_if_exists(self);
+    }
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
 
@@ -338,6 +470,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
                        self->output_1, (bool)*self->enable);
+
+  self->previous_learn_noise = current_learn;
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
@@ -347,7 +481,15 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_2, self->parameters);
 
+  bool current_learn = (bool)*self->learn_noise;
+  if (self->previous_learn_noise && !current_learn && self->bundle_path) {
+    nr_save_profile_to_file(self, self->lib_instance_2);
+  }
+
   if ((bool)*self->reset_noise_profile) {
+    if (self->bundle_path) {
+      nr_backup_profile_file_if_exists(self);
+    }
     specbleach_reset_noise_profile(self->lib_instance_2);
   }
 
