@@ -119,18 +119,17 @@ foreach fs : frame_sizes
     plugin_uri = 'https://github.com/lucianodato/noise-repellent#new_fs' + fs_str
     plugin_stereo_uri = 'https://github.com/lucianodato/noise-repellent-stereo#new_fs' + fs_str
 
-    manifest_content += '''
-<@0@>
-  a lv2:Plugin;
-  lv2:binary <@1@@LIB_EXT@> ;
-  rdfs:seeAlso <@1@.ttl> .
-
-<@2@>
-  a lv2:Plugin;
-  lv2:binary <@1@@LIB_EXT@> ;
-  rdfs:seeAlso <@1@#stereo.ttl> .
-'''.format(plugin_uri, plugin_name, plugin_stereo_uri)
+    manifest_content += '\n<' + plugin_uri + '>\n' + \
+        '  a lv2:Plugin;\n' + \
+        '  lv2:binary <' + plugin_name + extension + '> ;\n' + \
+        '  rdfs:seeAlso <' + plugin_name + '.ttl> .\n\n' + \
+        '<' + plugin_stereo_uri + '>\n' + \
+        '  a lv2:Plugin;\n' + \
+        '  lv2:binary <' + plugin_name + extension + '> ;\n' + \
+        '  rdfs:seeAlso <' + plugin_name + '#stereo.ttl> .\n'
 endforeach
+
+message('manifest_content: ' + manifest_content)
 
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
