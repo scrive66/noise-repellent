@@ -151,6 +151,7 @@ typedef struct NoiseRepellentPlugin {
   float *noise_rescale;
   float *reset_noise_profile;
   float prev_learn_noise;
+  float prev_reset_noise_profile;
 
 } NoiseRepellentPlugin;
 
@@ -270,6 +271,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   }
 
   self->prev_learn_noise = 0.0f;
+  self->prev_reset_noise_profile = 0.0f;
   int load_result = noise_profile_state_load(self->noise_profile_state_1, PROFILE_PATH);
   if (load_result == 0) {
     memcpy(self->noise_profile_1,
@@ -399,7 +401,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   }
   self->prev_learn_noise = *self->learn_noise;
 
-  if ((bool)*self->reset_noise_profile) {
+  if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
     time_t t = time(NULL);
     struct tm *tm = localtime(&t);
     char new_profile_path[512];
@@ -414,6 +416,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
     }
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
+  self->prev_reset_noise_profile = *self->reset_noise_profile;
 
   specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
                      self->output_1);
@@ -442,7 +445,7 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   }
   self->prev_learn_noise = *self->learn_noise;
 
-  if ((bool)*self->reset_noise_profile) {
+  if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
     time_t t = time(NULL);
     struct tm *tm = localtime(&t);
     char new_profile_path[512];
@@ -457,6 +460,7 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
     }
     specbleach_reset_noise_profile(self->lib_instance_2);
   }
+  self->prev_reset_noise_profile = *self->reset_noise_profile;
 
   specbleach_process(self->lib_instance_2, number_of_samples, self->input_2,
                      self->output_2);
