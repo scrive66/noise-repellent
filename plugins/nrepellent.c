@@ -32,7 +32,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <string.h>
 #include <time.h>
 
-#define PROFILE_PATH "/var/modep/lv2/nrepellent.lv2/profile.dat"
+static char PROFILE_PATH[512] = "";
 #ifndef FRAME_SIZE
 #define FRAME_SIZE 16.0f
 #endif
@@ -217,6 +217,13 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     strcpy(self->plugin_uri, descriptor->URI);
   }
 
+  // プロファイル保存パスをプラグインバンドル配下に設定
+  if (bundle_path && strlen(bundle_path) < 400) {
+    snprintf(PROFILE_PATH, sizeof(PROFILE_PATH), "%s/profile.dat", bundle_path);
+  } else {
+    strncpy(PROFILE_PATH, "./profile.dat", sizeof(PROFILE_PATH));
+  }
+
   map_uris(self->map, &self->uris, self->plugin_uri);
   map_state(self->map, &self->state, self->plugin_uri);
 
@@ -373,11 +380,12 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_1, self->parameters);
 
-  if (self->prev_learn_noise == 1.0f && *self->learn_noise == 0.0f) {
+  if (self->prev_learn_noise > 0.1f && *self->learn_noise < 0.1f) {
     memcpy(noise_profile_get_elements(self->noise_profile_state_1),
            specbleach_get_noise_profile(self->lib_instance_1),
            sizeof(float) * self->profile_size);
     noise_profile_state_save(self->noise_profile_state_1, PROFILE_PATH);
+    lv2_log_note(&self->log, "Saved <%s>\n", PROFILE_PATH);
   }
   self->prev_learn_noise = *self->learn_noise;
 
@@ -404,11 +412,12 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_2, self->parameters);
 
-  if (self->prev_learn_noise == 1.0f && *self->learn_noise == 0.0f) {
+  if (self->prev_learn_noise > 0.1f && *self->learn_noise < 0.1f) {
     memcpy(noise_profile_get_elements(self->noise_profile_state_1),
            specbleach_get_noise_profile(self->lib_instance_1),
            sizeof(float) * self->profile_size);
     noise_profile_state_save(self->noise_profile_state_1, PROFILE_PATH);
+    lv2_log_note(&self->log, "Saved <%s>\n", PROFILE_PATH);
   }
   self->prev_learn_noise = *self->learn_noise;
 

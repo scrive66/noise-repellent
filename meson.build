@@ -56,7 +56,7 @@ data_conf.set('PLUGIN_NAME', 'Noise repellent')
 
 
 # Build plugins with different frame sizes
-frame_sizes = [1, 4, 16]
+frame_sizes = [1, 2, 3, 4, 16]
 foreach fs : frame_sizes
     fs_str = fs.to_string()
 
@@ -96,7 +96,7 @@ foreach fs : frame_sizes
     ttl_stereo_conf = configuration_data()
     ttl_stereo_conf.merge_from(data_conf)
     ttl_stereo_conf.set('PLUGIN_URI', plugin_stereo_uri)
-    ttl_stereo_conf.set('PLUGIN_NAME', 'Noise repellent (fs' + fs_str + ')')
+    ttl_stereo_conf.set('PLUGIN_NAME', 'Noise repellent (fs' + fs_str + ') St')
 
     configure_file(
         input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
