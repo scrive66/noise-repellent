@@ -19,6 +19,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "noise_profile_state.h"
+#include <stdio.h>
 
 #define MAX_PROFILE_SIZE 8192
 
@@ -43,3 +44,23 @@ float *noise_profile_get_elements(NoiseProfileState *self) {
   return self->elements;
 }
 size_t noise_profile_get_size() { return sizeof(NoiseProfileState); }
+
+int noise_profile_state_load(NoiseProfileState *self, const char *path) {
+  FILE *f = fopen(path, "rb");
+  if (!f) {
+    return -1;
+  }
+  size_t read = fread(self, sizeof(NoiseProfileState), 1, f);
+  fclose(f);
+  return read == 1 ? 0 : -1;
+}
+
+int noise_profile_state_save(NoiseProfileState *self, const char *path) {
+  FILE *f = fopen(path, "wb");
+  if (!f) {
+    return -1;
+  }
+  size_t written = fwrite(self, sizeof(NoiseProfileState), 1, f);
+  fclose(f);
+  return written == 1 ? 0 : -1;
+}
