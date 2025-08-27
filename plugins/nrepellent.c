@@ -28,12 +28,11 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
 #include "specbleach_denoiser.h"
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <sys/stat.h>
 
-static char PROFILE_PATH[512] = "";
 #ifndef FRAME_SIZE
 #define FRAME_SIZE 16.0f
 #endif
@@ -113,6 +112,9 @@ typedef enum PortIndex {
   NOISEREPELLENT_OUTPUT_1 = 13,
   NOISEREPELLENT_INPUT_2 = 14,
   NOISEREPELLENT_OUTPUT_2 = 15,
+  NOISEREPELLENT_PROFILE_SLOT = 16,
+  NOISEREPELLENT_PROFILE_SAVE = 17,
+  NOISEREPELLENT_PROFILE_LOAD = 18,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -152,6 +154,13 @@ typedef struct NoiseRepellentPlugin {
   float *reset_noise_profile;
   float prev_learn_noise;
   float prev_reset_noise_profile;
+
+  float *profile_slot;
+  float *profile_save;
+  float *profile_load;
+  float prev_profile_save;
+  float prev_profile_load;
+  bool is_first_run;
 
 } NoiseRepellentPlugin;
 
@@ -219,14 +228,11 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     strcpy(self->plugin_uri, descriptor->URI);
   }
 
-  // プロファイル保存パスを /var/modep/user-files/noise-repellent/profile.dat に固定
   const char *config_dir = "/var/modep/user-files/noise-repellent";
   struct stat st = {0};
   if (stat(config_dir, &st) == -1) {
     mkdir(config_dir, 0777);
   }
-  snprintf(PROFILE_PATH, sizeof(PROFILE_PATH), "%s/profile.dat", config_dir);
-  PROFILE_PATH[sizeof(PROFILE_PATH) - 1] = '\0';
 
   map_uris(self->map, &self->uris, self->plugin_uri);
   map_state(self->map, &self->state, self->plugin_uri);
@@ -272,24 +278,9 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->prev_learn_noise = 0.0f;
   self->prev_reset_noise_profile = 0.0f;
-  int load_result = noise_profile_state_load(self->noise_profile_state_1, PROFILE_PATH);
-  if (load_result == 0) {
-    memcpy(self->noise_profile_1,
-           noise_profile_get_elements(self->noise_profile_state_1),
-           sizeof(float) * self->profile_size);
-    specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
-                                  self->profile_size, 0);
-    if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-        memcpy(self->noise_profile_2,
-               noise_profile_get_elements(self->noise_profile_state_1),
-               sizeof(float) * self->profile_size);
-        specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
-                                     self->profile_size, 0);
-    }
-    lv2_log_note(&self->log, "Loaded <%s>\n", PROFILE_PATH);
-  } else {
-    lv2_log_error(&self->log, "Failed to load <%s>\n", PROFILE_PATH);
-  }
+  self->prev_profile_save = 0.0f;
+  self->prev_profile_load = 0.0f;
+  self->is_first_run = true;
 
   return (LV2_Handle)self;
 }
@@ -340,6 +331,15 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_OUTPUT_1:
     self->output_1 = (float *)data;
     break;
+  case NOISEREPELLENT_PROFILE_SLOT:
+    self->profile_slot = (float *)data;
+    break;
+  case NOISEREPELLENT_PROFILE_SAVE:
+    self->profile_save = (float *)data;
+    break;
+  case NOISEREPELLENT_PROFILE_LOAD:
+    self->profile_load = (float *)data;
+    break;
   default:
     break;
   }
@@ -372,6 +372,30 @@ static void activate(LV2_Handle instance) {
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
+  if (self->is_first_run) {
+    char profile_path[512];
+    snprintf(profile_path, sizeof(profile_path), "/var/modep/user-files/noise-repellent/profile_%d.dat", (int)*self->profile_slot);
+    int load_result = noise_profile_state_load(self->noise_profile_state_1, profile_path);
+    if (load_result == 0) {
+      memcpy(self->noise_profile_1,
+             noise_profile_get_elements(self->noise_profile_state_1),
+             sizeof(float) * self->profile_size);
+      specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
+                                    self->profile_size, 0);
+      if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
+          memcpy(self->noise_profile_2,
+                 noise_profile_get_elements(self->noise_profile_state_1),
+                 sizeof(float) * self->profile_size);
+          specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
+                                       self->profile_size, 0);
+      }
+      lv2_log_note(&self->log, "Auto-loaded profile on startup: <%s>\n", profile_path);
+    } else {
+      lv2_log_note(&self->log, "No profile to auto-load from <%s>\n", profile_path);
+    }
+    self->is_first_run = false;
+  }
+
   // clang-format off
   self->parameters = (SpectralBleachParameters){
       .learn_noise = (int)*self->learn_noise,
@@ -388,35 +412,49 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_1, self->parameters);
 
-  if (self->prev_learn_noise > 0.1f && *self->learn_noise < 0.1f) {
-    memcpy(noise_profile_get_elements(self->noise_profile_state_1),
-           specbleach_get_noise_profile(self->lib_instance_1),
-           sizeof(float) * self->profile_size);
-    int save_result = noise_profile_state_save(self->noise_profile_state_1, PROFILE_PATH);
-    if (save_result == 0) {
-      lv2_log_note(&self->log, "Saved <%s>\n", PROFILE_PATH);
-    } else {
-      lv2_log_error(&self->log, "Failed to save <%s>\n", PROFILE_PATH);
-    }
-  }
-  self->prev_learn_noise = *self->learn_noise;
-
   if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
-    time_t t = time(NULL);
-    struct tm *tm = localtime(&t);
-    char new_profile_path[512];
-    snprintf(new_profile_path, sizeof(new_profile_path), "/var/modep/user-files/noise-repellent/profile-%04d%02d%02dT%02d%02d%02d.dat",
-             tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-             tm->tm_hour, tm->tm_min, tm->tm_sec);
-    int rename_result = rename(PROFILE_PATH, new_profile_path);
-    if (rename_result == 0) {
-      lv2_log_note(&self->log, "Renamed profile to <%s>\n", new_profile_path);
-    } else {
-      lv2_log_error(&self->log, "Failed to rename profile to <%s>\n", new_profile_path);
-    }
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
   self->prev_reset_noise_profile = *self->reset_noise_profile;
+
+  if (self->prev_profile_save < 0.5f && *self->profile_save > 0.5f) {
+    char profile_path[512];
+    snprintf(profile_path, sizeof(profile_path), "/var/modep/user-files/noise-repellent/profile_%d.dat", (int)*self->profile_slot);
+    memcpy(noise_profile_get_elements(self->noise_profile_state_1),
+           specbleach_get_noise_profile(self->lib_instance_1),
+           sizeof(float) * self->profile_size);
+    int save_result = noise_profile_state_save(self->noise_profile_state_1, profile_path);
+    if (save_result == 0) {
+      lv2_log_note(&self->log, "Saved <%s>\n", profile_path);
+    } else {
+      lv2_log_error(&self->log, "Failed to save <%s>\n", profile_path);
+    }
+  }
+  self->prev_profile_save = *self->profile_save;
+
+  if (self->prev_profile_load < 0.5f && *self->profile_load > 0.5f) {
+    char profile_path[512];
+    snprintf(profile_path, sizeof(profile_path), "/var/modep/user-files/noise-repellent/profile_%d.dat", (int)*self->profile_slot);
+    int load_result = noise_profile_state_load(self->noise_profile_state_1, profile_path);
+    if (load_result == 0) {
+      memcpy(self->noise_profile_1,
+             noise_profile_get_elements(self->noise_profile_state_1),
+             sizeof(float) * self->profile_size);
+      specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
+                                    self->profile_size, 0);
+      if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
+          memcpy(self->noise_profile_2,
+                 noise_profile_get_elements(self->noise_profile_state_1),
+                 sizeof(float) * self->profile_size);
+          specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
+                                       self->profile_size, 0);
+      }
+      lv2_log_note(&self->log, "Loaded <%s>\n", profile_path);
+    } else {
+      lv2_log_error(&self->log, "Failed to load <%s>\n", profile_path);
+    }
+  }
+  self->prev_profile_load = *self->profile_load;
 
   specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
                      self->output_1);
@@ -432,35 +470,10 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_2, self->parameters);
 
-  if (self->prev_learn_noise > 0.1f && *self->learn_noise < 0.1f) {
-    memcpy(noise_profile_get_elements(self->noise_profile_state_1),
-           specbleach_get_noise_profile(self->lib_instance_1),
-           sizeof(float) * self->profile_size);
-    int save_result = noise_profile_state_save(self->noise_profile_state_1, PROFILE_PATH);
-    if (save_result == 0) {
-      lv2_log_note(&self->log, "Saved <%s>\n", PROFILE_PATH);
-    } else {
-      lv2_log_error(&self->log, "Failed to save <%s>\n", PROFILE_PATH);
-    }
-  }
-  self->prev_learn_noise = *self->learn_noise;
-
   if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
-    time_t t = time(NULL);
-    struct tm *tm = localtime(&t);
-    char new_profile_path[512];
-    snprintf(new_profile_path, sizeof(new_profile_path), "/var/modep/user-files/noise-repellent/profile-%04d%02d%02dT%02d%02d%02d.dat",
-             tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-             tm->tm_hour, tm->tm_min, tm->tm_sec);
-    int rename_result = rename(PROFILE_PATH, new_profile_path);
-    if (rename_result == 0) {
-      lv2_log_note(&self->log, "Renamed profile to <%s>\n", new_profile_path);
-    } else {
-      lv2_log_error(&self->log, "Failed to rename profile to <%s>\n", new_profile_path);
-    }
     specbleach_reset_noise_profile(self->lib_instance_2);
   }
-  self->prev_reset_noise_profile = *self->reset_noise_profile;
+  // Note: prev_reset_noise_profile is already updated in run()
 
   specbleach_process(self->lib_instance_2, number_of_samples, self->input_2,
                      self->output_2);
