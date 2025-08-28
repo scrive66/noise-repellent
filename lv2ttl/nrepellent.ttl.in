@@ -24,7 +24,7 @@
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
                "Un greffon LV2 pour la réduction du bruit à large bande"@fr ,
                "An LV2 plugin for broadband noise reduction" ;
-  lv2:project <https://github.com/lucianodato/noise-repellent#new> ;
+  lv2:project <@PLUGIN_URI@> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
   lv2:extensionData state:interface ;
   lv2:requiredFeature urid:map ;
@@ -220,21 +220,9 @@
     lv2:portProperty lv2:integer ;
     units:unit units:frame ;
   ], [
-    a lv2:AudioPort,
-      lv2:InputPort ;
-    lv2:index 12 ;
-    lv2:symbol "input" ;
-    lv2:name "Input" ;
-  ], [
-    a lv2:AudioPort,
-      lv2:OutputPort ;
-    lv2:index 13 ;
-    lv2:symbol "output" ;
-    lv2:name "Output" ;
-  ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 16 ;
+    lv2:index 12 ;
     lv2:symbol "profile_slot" ;
     lv2:name "Profile Slot" ;
     lv2:minimum 0 ;
@@ -244,7 +232,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 17 ;
+    lv2:index 13 ;
     lv2:symbol "profile_save" ;
     lv2:name "Save Profile" ;
     lv2:minimum 0 ;
@@ -254,13 +242,25 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 18 ;
+    lv2:index 14 ;
     lv2:symbol "profile_load" ;
     lv2:name "Load Profile" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
     lv2:portProperty lv2:toggled, lv2:integer, pprop:trigger ;
+  ], [
+    a lv2:AudioPort,
+      lv2:InputPort ;
+    lv2:index 15 ;
+    lv2:symbol "input" ;
+    lv2:name "Input" ;
+  ], [
+    a lv2:AudioPort,
+      lv2:OutputPort ;
+    lv2:index 16 ;
+    lv2:symbol "output" ;
+    lv2:name "Output" ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido"@es,
                "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
