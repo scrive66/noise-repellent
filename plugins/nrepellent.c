@@ -413,6 +413,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_load_parameters(self->lib_instance_1, self->parameters);
 
   if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
+    lv2_log_note(&self->log, "Noise profile reset\n");
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
   self->prev_reset_noise_profile = *self->reset_noise_profile;
@@ -471,6 +472,7 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_load_parameters(self->lib_instance_2, self->parameters);
 
   if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
+    lv2_log_note(&self->log, "Noise profile reset (stereo)\n");
     specbleach_reset_noise_profile(self->lib_instance_2);
   }
   // Note: prev_reset_noise_profile is already updated in run()
