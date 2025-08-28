@@ -161,6 +161,10 @@ typedef struct NoiseRepellentPlugin {
   float prev_profile_save;
   float prev_profile_load;
   bool is_first_run;
+  // 1回目のリセット・save・loadイベントを無視するためのフラグ
+  bool reset_ignored;
+  bool save_ignored;
+  bool load_ignored;
 
 } NoiseRepellentPlugin;
 
@@ -281,6 +285,9 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->prev_profile_save = 0.0f;
   self->prev_profile_load = 0.0f;
   self->is_first_run = true;
+  self->reset_ignored = false;
+  self->save_ignored = false;
+  self->load_ignored = false;
 
   return (LV2_Handle)self;
 }
@@ -412,13 +419,19 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_load_parameters(self->lib_instance_1, self->parameters);
 
-  if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
+
+  // 1回目のリセット・save・loadイベントは無視する（インスタンスごとに）
+  if (!self->reset_ignored) {
+    self->reset_ignored = true;
+  } else if (self->prev_reset_noise_profile < 0.5f && *self->reset_noise_profile > 0.5f) {
     lv2_log_note(&self->log, "Noise profile reset\n");
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
   self->prev_reset_noise_profile = *self->reset_noise_profile;
 
-  if (self->prev_profile_save < 0.5f && *self->profile_save > 0.5f) {
+  if (!self->save_ignored) {
+    self->save_ignored = true;
+  } else if (self->prev_profile_save < 0.5f && *self->profile_save > 0.5f) {
     char profile_path[512];
     snprintf(profile_path, sizeof(profile_path), "/var/modep/user-files/noise-repellent/profile_%d.dat", (int)*self->profile_slot);
     memcpy(noise_profile_get_elements(self->noise_profile_state_1),
@@ -433,7 +446,9 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   }
   self->prev_profile_save = *self->profile_save;
 
-  if (self->prev_profile_load < 0.5f && *self->profile_load > 0.5f) {
+  if (!self->load_ignored) {
+    self->load_ignored = true;
+  } else if (self->prev_profile_load < 0.5f && *self->profile_load > 0.5f) {
     char profile_path[512];
     snprintf(profile_path, sizeof(profile_path), "/var/modep/user-files/noise-repellent/profile_%d.dat", (int)*self->profile_slot);
     int load_result = noise_profile_state_load(self->noise_profile_state_1, profile_path);
